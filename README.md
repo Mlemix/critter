@@ -12,16 +12,18 @@ critter = "0.1.0"
 ```
 
 ## Basic Examples
-### Creating a Client - OAuth1.0a
+### Creating a Client - OAuth1.0a (With Provided OAuth Tokens)
 ```rust
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut twitter = TwitterClient::new(
-        &env::var("CONSUMER_KEY").unwrap(), // Your consumer key
-        &env::var("CONSUMER_SECRET").unwrap(), // Your consumer secret
-        &env::var("ACCESS_TOKEN").unwrap(), // Your access token
-        &env::var("ACCESS_TOKEN_SECRET").unwrap() // Your access token secret
-    )?;
+    let auth = TwitterAuth::from_3pin(
+        &env::var("CONSUMER_KEY").unwrap(),
+        &env::var("CONSUMER_SECRET").unwrap(),
+        &env::var("ACCESS_TOKEN").unwrap(),
+        &env::var("ACCESS_TOKEN_SECRET").unwrap()
+    );
+
+    let mut twitter = TwitterClient::new(auth)?;
 
     Ok(())
 }
@@ -30,8 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Getting the Details of The Authenticated User
 ```rust
 match twitter.me(None).await {
-    Ok(data) => println!("My name: {}", data.name),
-    Err(e) => println!("Error occurred: {}", e)
+    Ok(data) => println!("My name is {}", data.name),
+    Err(e) => println!("Error: {}", e) // Can be something like ratelimit
 }
 ```
 An example of obtaining additional details such as `description` and `created_at` is provided [here](https://github.com/Mlemix/critter).
