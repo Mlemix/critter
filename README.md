@@ -12,7 +12,7 @@ critter = "0.1.0"
 ```
 
 ## Basic Examples
-### Creating a Client - OAuth1.0a (With Provided OAuth Tokens)
+### Creating a Client - OAuth 1.0a User Context (With Provided OAuth Tokens)
 ```rust
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
