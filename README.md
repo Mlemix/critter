@@ -16,7 +16,7 @@ critter = "0.1.0"
 ```rust
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let auth = TwitterAuth::from_3pin(
+    let auth = TwitterAuth::from_oa1uc(
         &env::var("CONSUMER_KEY").unwrap(),
         &env::var("CONSUMER_SECRET").unwrap(),
         &env::var("ACCESS_TOKEN").unwrap(),
