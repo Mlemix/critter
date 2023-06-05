@@ -37,3 +37,36 @@ match twitter.me(None).await {
 }
 ```
 An example of obtaining additional details such as `description` and `created_at` is provided [here](https://github.com/Mlemix/critter).
+
+### Posting a simple Tweet
+```rust
+match twitter.tweet(|tweet|
+    tweet.text("Hello from Rust!") // The tweet's text
+).await {
+    Ok(data) => println!("Tweet id: {:?}", &data.id),
+    Err(e) => println!("Error: {}", e)
+}
+```
+
+### Uploading Media
+```rust
+// Upload the media
+let pic = match twitter.upload_media("/path/to/file.jpg", Some("pic.jpg")).await {
+    Ok(pic) => Some(pic),
+    Err(e) => {
+        eprintln!("Error uploading media: {}", e);
+        None
+    },
+};
+
+// Make a tweet with said media attached
+match twitter.tweet(|tweet|
+    tweet.text("This is a file.") // The tweet's text
+    .media(|m| { // You are able to add multiple medias
+        m.add(pic) // Add the media we uploaded
+    })
+).await {
+    Ok(data) => println!("Tweet id: {:?}", &data.id),
+    Err(e) => println!("Error: {}", e)
+}
+```
