@@ -18,8 +18,23 @@ struct TwitterApiResponseError {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitterPostData {
-    pub id: String,
-    pub text: Option<String>,
+    id: String,
+    text: Option<String>,
+}
+impl TwitterPostData {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn has_text(&self) -> bool {
+        self.text.is_some()
+    }
+    pub fn description(&self) -> &str {
+        match &self.text {
+            Some(description) => description,
+            None => "none"
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -190,15 +205,15 @@ impl TwitterClient {
         }
     }
 
-    async fn _multipart_request<T: DeserializeOwned>(&mut self, method: &str, url: &str, multipart: Form) -> Result<T, Error> {
+    async fn _multipart_request<T: DeserializeOwned>(&mut self, method: &str, url: &str, multipart: Form, query: Option<&[(&str, &str)]>) -> Result<T, Error> {
         let res = self.http.request(
             Method::from_str(method).unwrap_or(Method::GET),
-            url
+            Url::parse_with_params(url, query.unwrap_or_default()).unwrap()
         )
             .header(AUTHORIZATION, &self.auth.header(
                 method,
                 url,
-                None
+                query
             ))
             .multipart(multipart)
             .send()
@@ -232,41 +247,115 @@ impl TwitterClient {
         let file_bytes;
         let mime;
         if path.starts_with("http") {
-            let res = reqwest::get(path)
-                .await;
-
-            match res {
-                Ok(data) => {
-                    file_bytes = data.bytes().await?.to_vec();
-                    mime = "image/jpg"
-                },
-                _ => return Err(Error::BadMedia) 
-            }
+            let media = reqwest::get(path).await?;
+            let headers = media.headers().clone();
+            let content_type_header = headers.get(reqwest::header::CONTENT_TYPE).unwrap().to_str().unwrap().to_owned();
+            file_bytes = media.bytes().await?.to_vec();
+            mime = content_type_header;
         } else {
             match fs::read(path) {
                 Ok(bytes) => {
                     file_bytes = bytes;
-                    mime = infer::get(&file_bytes).unwrap().mime_type();
+                    mime = infer::get(&file_bytes).unwrap().mime_type().to_string();
                 },
                 _ => return Err(Error::BadMedia)
             }
         }
 
-        if file_bytes.len() <= 1024 * 1024 { // simple upload
+        let len = file_bytes.len();
+        if len <= 1024 * 1024 { // simple upload
             let file_part = reqwest::multipart::Part::bytes(file_bytes)
-                .file_name(filename.unwrap_or("media".into()))
-                .mime_str(mime)
-                .unwrap();
+                .file_name(filename.unwrap_or("media".into()));
             let form = reqwest::multipart::Form::new()
                 .part("media", file_part);
 
             self._multipart_request(
                 "POST",
                 "https://upload.twitter.com/1.1/media/upload.json",
-                form
+                form,
+                None
             ).await
-        } else {
-            Err(Error::NoUserData)
+        } else { // chunked media upload
+            let init = self._multipart_request::<TwitterMediaResponse>(
+                "POST",
+                "https://upload.twitter.com/1.1/media/upload.json",
+                reqwest::multipart::Form::new()
+                    .text("command", "INIT")
+                    .text("total_bytes", len.to_string())
+                    .text("media_type", mime),
+                None
+            ).await;
+
+            let media_id = match init {
+                Ok(data) => data.media_id_string,
+                _ => return Err(Error::BadMedia)
+            };
+
+            for (i, chunk) in file_bytes.chunks(1024 * 1024).enumerate() {
+                let append = self.http.post("https://upload.twitter.com/1.1/media/upload.json")
+                    .header(AUTHORIZATION, &self.auth.header(
+                        "POST",
+                        "https://upload.twitter.com/1.1/media/upload.json",
+                        None
+                    ))
+                    .multipart(reqwest::multipart::Form::new()
+                        .text("command", "APPEND")
+                        .text("media_id", media_id.to_string())
+                        .text("segment_index", i.to_string())
+                        .part("media", reqwest::multipart::Part::bytes(chunk.to_vec())
+                            .file_name(format!("media_chunk_{}", i))
+                        )
+                    )
+                    .send()
+                    .await?
+                    .status();
+
+                if append != 204 {
+                    return Err(Error::BadMedia)
+                }
+            }
+
+            let finalize = self._multipart_request::<TwitterMediaResponse>(
+                "POST",
+                "https://upload.twitter.com/1.1/media/upload.json",
+                reqwest::multipart::Form::new()
+                    .text("command", "FINALIZE")
+                    .text("media_id", media_id.to_string()),
+                None
+            ).await?;
+
+            if finalize.processing_info.is_some() {
+                loop {
+                    let status = self._request::<TwitterMediaResponse>(
+                        "GET",
+                        "https://upload.twitter.com/1.1/media/upload.json",
+                        Some(&[
+                            ("command", "STATUS"),
+                            ("media_id", &media_id)
+                        ])
+                    ).await;
+
+                    println!("status: {:?}", status);
+
+                    match status {
+                        Ok(mut data) => {
+                            match data.status() {
+                                MediaStatus::InProgress => {
+                                    println!("in progress");
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(data.seconds_left())).await;
+                                    continue;
+                                },
+                                MediaStatus::Succeeded => return Ok(data),
+                                _ => return Err(Error::BadMedia)
+                            }
+                        },
+                        _ => return Err(Error::BadMedia)
+                    }
+                }
+            } else {
+                Ok(finalize)
+            }
+            
         }
     }
 
@@ -287,12 +376,43 @@ impl TwitterClient {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct TwitterMediaResponseProcessingInfo {
+    state: String,
+    progress_percent: u32,
+    check_after_secs: Option<u64>
+}
+
+pub enum MediaStatus {
+    InProgress,
+    Succeeded,
+    Failed,
+    Bad
+}
+
+#[derive(Debug, Deserialize)]
 pub struct TwitterMediaResponse {
     media_id: u64,
-    expires_after_secs: u32,
-    media_id_string: String
+    media_id_string: String,
+    expires_after_secs: Option<u32>,
+    processing_info: Option<TwitterMediaResponseProcessingInfo>
 }
 impl TwitterMediaResponse {
+    pub fn status(&mut self) -> MediaStatus {
+        match &self.processing_info {
+            Some(processing_info) => match processing_info.state.as_ref() {
+                "in_progress" => MediaStatus::InProgress,
+                "succeeded" => MediaStatus::Succeeded,
+                "failed" => MediaStatus::Failed,
+                _ => MediaStatus::Bad
+            },
+            _ => MediaStatus::Bad
+        }
+    }
+
+    pub fn seconds_left(&mut self) -> u64 {
+        self.processing_info.as_ref().unwrap().check_after_secs.unwrap()
+    }
+
     pub fn id(&mut self) -> &str {
         &self.media_id_string
     }
@@ -300,11 +420,44 @@ impl TwitterMediaResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitterUserData {
-    pub id: String,
-    pub name: String,
-    pub username: String,
-    pub description: Option<String>,
-    pub created_at: Option<String>
+    id: String,
+    name: String,
+    username: String,
+    description: Option<String>,
+    created_at: Option<String>
+}
+impl TwitterUserData {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn has_description(&self) -> bool {
+        self.description.is_some()
+    }
+    pub fn description(&self) -> &str {
+        match &self.description {
+            Some(description) => description,
+            None => ""
+        }
+    }
+
+    pub fn has_created_at(&self) -> bool {
+        self.created_at.is_some()
+    }
+    pub fn created_at(&self) -> &str {
+        match &self.created_at {
+            Some(date) => date,
+            None => "invalid"
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

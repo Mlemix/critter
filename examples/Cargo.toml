@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+name = "critter-examples"
+publish = false
+version = "0.0.0"
+
+[dev-dependencies]
+critter = "0.1.73"
+tokio = { version = "1.28.2", features = ["full"] }
+
+[[example]]
+name = "userdata"
+path = "userdata.rs"

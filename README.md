@@ -5,10 +5,12 @@ Simple rust library to interact with the twitter V2 api.
 Before proceeding, ensure you have your Twitter Developer App credentials handy - Consumer Key, Consumer Secret, Access Token, and Access Token Secret.
 
 ## Installation
+Simply run `cargo add critter`
+or
 Include the following in your `Cargo.toml`:
 ```toml
 [dependencies]
-critter = "0.1.7"
+critter = "0.1.73"
 ```
 
 ## Basic Examples
@@ -34,18 +36,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Getting the Details of The Authenticated User
 ```rust
 match twitter.me(None).await {
-    Ok(data) => println!("My name is {}", data.name),
+    Ok(data) => println!("My name is {}", data.name()),
     Err(e) => println!("Error: {}", e) // Can be something like ratelimit
 }
 ```
-An example of obtaining additional details such as `description` and `created_at` is provided [here](https://github.com/Mlemix/critter).
+An example of obtaining additional details such as `description` and `created_at` is provided [here](https://github.com/Mlemix/critter/blob/main/examples/userdata.rs).
 
 ### Posting a simple Tweet
 ```rust
 match twitter.tweet(|tweet|
     tweet.text("Hello from Rust!") // The tweet's text
 ).await {
-    Ok(data) => println!("Tweet id: {:?}", &data.id),
+    Ok(data) => println!("Tweet id: {:?}", data.id()),
     Err(e) => println!("Error: {}", e)
 }
 ```
@@ -53,7 +55,7 @@ match twitter.tweet(|tweet|
 ### Uploading Media
 ```rust
 // Upload the media
-let pic = match twitter.upload_media("/path/to/file.jpg", Some("pic.jpg")).await {
+let pic = match twitter.upload_media("/path/to/file.jpg", Some("pic.jpg".into())).await {
     Ok(pic) => Some(pic),
     Err(e) => {
         eprintln!("Error uploading media: {}", e);
@@ -68,7 +70,7 @@ match twitter.tweet(|tweet|
         m.add(pic) // Add the media we uploaded
     })
 ).await {
-    Ok(data) => println!("Tweet id: {:?}", &data.id),
+    Ok(data) => println!("Tweet id: {:?}", data.id()),
     Err(e) => println!("Error: {}", e)
 }
 ```

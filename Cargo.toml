@@ -1,6 +1,6 @@
 [package]
 name = "critter"
-version = "0.1.7"
+version = "0.1.73"
 edition = "2021"
 homepage = "https://github.com/Mlemix/critter"
 repository = "https://github.com/Mlemix/critter"
@@ -15,7 +15,7 @@ keywords = [ "twitter", "api", "wrapper", "api-wrapper" ]
 reqwest = { version = "0.11", features = ["json", "cookies", "multipart"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.28.2", features = ["full"] }
 rust-crypto = "0.2.36"
 base64 = "0.21.2"
 urlencoding = "2.1.2"
