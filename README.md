@@ -8,12 +8,14 @@ Before proceeding, ensure you have your Twitter Developer App credentials handy 
 Include the following in your `Cargo.toml`:
 ```toml
 [dependencies]
-critter = "0.1.6"
+critter = "0.1.7"
 ```
 
 ## Basic Examples
 ### Creating a Client - OAuth 1.0a User Context (With Provided OAuth Tokens)
 ```rust
+use critter::{ TwitterClient, auth::TwitterAuth };
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth = TwitterAuth::from_oa1uc(

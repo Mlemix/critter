@@ -18,8 +18,8 @@ struct TwitterApiResponseError {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitterPostData {
-    id: String,
-    text: Option<String>,
+    pub id: String,
+    pub text: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -300,11 +300,11 @@ impl TwitterMediaResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitterUserData {
-    id: String,
-    name: String,
-    username: String,
-    description: Option<String>,
-    created_at: Option<String>
+    pub id: String,
+    pub name: String,
+    pub username: String,
+    pub description: Option<String>,
+    pub created_at: Option<String>
 }
 
 #[derive(Debug, Deserialize)]
