@@ -8,7 +8,7 @@ Before proceeding, ensure you have your Twitter Developer App credentials handy 
 Include the following in your `Cargo.toml`:
 ```toml
 [dependencies]
-critter = "0.1.0"
+critter = "0.1.6"
 ```
 
 ## Basic Examples

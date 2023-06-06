@@ -17,7 +17,7 @@ struct TwitterApiResponseError {
 }
 
 #[derive(Debug, Deserialize)]
-struct TwitterPostData {
+pub struct TwitterPostData {
     id: String,
     text: Option<String>,
 }
@@ -107,7 +107,7 @@ struct TwitterApiResponse {
     data: Option<Value>
 }
 
-struct TwitterClient {
+pub struct TwitterClient {
     http: Client,
     auth: TwitterAuth
 }
@@ -299,7 +299,7 @@ impl TwitterMediaResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct TwitterUserData {
+pub struct TwitterUserData {
     id: String,
     name: String,
     username: String,
