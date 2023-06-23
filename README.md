@@ -10,7 +10,7 @@ or
 Include the following in your `Cargo.toml`:
 ```toml
 [dependencies]
-critter = "0.1.73"
+critter = "0.1.75"
 ```
 
 ## Basic Examples

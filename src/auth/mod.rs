@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use base64::{engine::general_purpose, Engine as _};
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TwitterAuth {
     pin3: Option<Twitter3Pin>
 }
