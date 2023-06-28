@@ -119,6 +119,7 @@ impl TweetBuilder {
 
 pub mod error;
 use error::Error;
+use error::Error::ApiError;
 
 #[derive(Debug, Deserialize)]
 struct TwitterApiResponse {
@@ -160,6 +161,18 @@ impl TwitterClient {
             .await?)
     }
 
+    fn collect_errors(&self, response: &TwitterApiResponse) -> Vec<String> {
+        let mut res = vec![];
+        if let Some(errors) = &response.errors {
+            errors.iter().
+                for_each(|e| res.push(e.message.to_string()));
+        }
+        if let Some(detail) = &response.detail {
+            res.push(detail.to_string());
+        }
+        res
+    }
+
     async fn _request<T: DeserializeOwned>(
         &mut self,
         method: &str,
@@ -181,17 +194,14 @@ impl TwitterClient {
         match res.data {
             Some(data) => Ok(serde_json::from_value(data).unwrap()),
             None => {
-                if let Some(detail) = res.detail {
-                    match detail.as_ref() {
-                        "Too Many Requests" => Err(Error::TooManyRequests),
-                        _ => Err(Error::Unknown),
-                    }
-                } else if let Some(errors) = res.errors {
-                    println!("got errors: {:?}", errors);
-                    Err(Error::Unknown)
-                } else {
-                    Err(Error::Unknown)
+                let error_strings = self.collect_errors(&res);
+                if error_strings.contains(&String::from("Too Many Requests")) {
+                    return Err(Error::TooManyRequests);
                 }
+                if !error_strings.is_empty() {
+                    return Err(ApiError(error_strings.join(" ").to_string()));
+                }
+                return Err(Error::Unknown);
             }
         }
     }
@@ -219,17 +229,14 @@ impl TwitterClient {
         match res.data {
             Some(data) => Ok(serde_json::from_value(data).unwrap()),
             None => {
-                if let Some(detail) = res.detail {
-                    match detail.as_ref() {
-                        "Too Many Requests" => Err(Error::TooManyRequests),
-                        _ => Err(Error::Unknown),
-                    }
-                } else if let Some(errors) = res.errors {
-                    println!("got errors: {:?}", errors);
-                    Err(Error::Unknown)
-                } else {
-                    Err(Error::Unknown)
+                let error_strings = self.collect_errors(&res);
+                if error_strings.contains(&String::from("Too Many Requests")) {
+                    return Err(Error::TooManyRequests);
                 }
+                if !error_strings.is_empty() {
+                    return Err(ApiError(error_strings.join(" ").to_string()));
+                }
+                return Err(Error::Unknown);
             }
         }
     }
